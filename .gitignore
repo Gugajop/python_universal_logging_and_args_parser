@@ -1,4 +1,7 @@
 try.py
-config.json
+*.json
 *.log
 __pycache__/
+*.yml
+*.yaml
+*.ini

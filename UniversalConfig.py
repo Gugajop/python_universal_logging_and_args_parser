@@ -5,6 +5,7 @@ import os.path
 import json
 import yaml
 import custom_error
+import configparser
 
 
 class UniversalConfig:
@@ -29,8 +30,62 @@ class UniversalConfig:
                 self.config_data = json.load(config_file)
             elif config_path.endswith((".yaml", ".yml")):
                 self.config_data = yaml.safe_load(config_file)
+            elif config_path.endswith(".ini"):
+                self.config_data = self._parse_ini_config(config_file)
             else:
                 raise custom_error.WrongFileFormat("Wrong format of file")
+
+    def _parse_ini_config(self, config_file) -> dict[str, any]:
+        """Парсинг INI файла в словарь"""
+        config = configparser.ConfigParser(interpolation=None)
+        config.read_file(config_file)
+
+        result = {}
+
+        for section in config.sections():
+            if "." in section:
+                main_section, subsection = section.split(".", 1)
+
+                if main_section not in result:
+                    result[main_section] = {}
+
+                if subsection not in result:
+                    result[main_section][subsection] = {}
+
+                for arg_key, value in config.items(section):
+                    result[main_section][subsection][arg_key] = (
+                        self._convert_ini_value(value)
+                    )
+            else:
+                result[section] = {}
+                for key, value in config.items(section):
+                    result[section][key] = self._convert_ini_value(value)
+
+        return result
+
+    def _convert_ini_value(self, value: str):
+        """Конвертация строкового значения INI в соответсвующий тип"""
+        # boolean
+        if value.lower() in ("true", "yes", "on", "1"):
+            return True
+        elif value.lower() in ("false", "no", "off", "0"):
+            return False
+
+        # int and float
+        try:
+            return int(value)
+        except ValueError:
+            try:
+                return float(value)
+            except ValueError:
+                pass
+
+        # list
+        if "," in value:
+            return [self._convert_ini_value(item.strip())
+                    for item in value.split(",")]
+
+        return value
 
     def setup_logging(self):
         """Настройка параметров логера"""
