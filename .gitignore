@@ -1,0 +1,4 @@
+try.py
+config.json
+*.log
+__pycache__/

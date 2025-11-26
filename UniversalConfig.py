@@ -37,8 +37,8 @@ class UniversalConfig:
         logging_config = self.config_data.get("logging", {})
 
         # Logger
-        logger = logging.getLogger("universl_logger")
-        logger.setLevel(logging.DEBUG)  # degault
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)  # default
 
         # Default formatter
         formatter = logging.Formatter(
@@ -69,7 +69,7 @@ class UniversalConfig:
             logger.addHandler(console_handler)
 
         # File handler
-        file_config = self.config_data.get("file", {})
+        file_config = logging_config.get("file", {})
         if file_config.get("enabled", False):
             file_level = getattr(
                 logging,
@@ -96,6 +96,8 @@ class UniversalConfig:
 
             logger.addHandler(file_handler)
 
+        self.logger = logger
+
     def setup_arg_parser(self):
         """Настройка парсера аргументов"""
         parser = argparse.ArgumentParser(
@@ -104,7 +106,7 @@ class UniversalConfig:
 
         # Adding arguments
         arguments = self.config_data.get("arguments", {})
-        for arg_name, arg_config in arguments.items():
+        for arg_config in arguments.values():
             flags = []
             if "short" in arg_config:
                 flags.append(arg_config["short"])
@@ -120,3 +122,38 @@ class UniversalConfig:
             arg_type = arg_config.get("type", "string")
             if arg_type == "boolean":
                 kwargs["action"] = "store_true"
+            elif arg_type == "integer":
+                kwargs["type"] = int
+            elif arg_type == "float":
+                kwargs["type"] = float
+            else:  # string
+                kwargs["type"] = str
+
+            if "choices" in arg_config:
+                kwargs["choices"] = arg_config["choices"]
+
+            parser.add_argument(*flags, **kwargs)
+
+        self.parsed_args = vars(parser.parse_args())
+
+    def get(self, key: str, default=None):
+        """Получение значения аргумента"""
+        return self.parsed_args.get(key, default)
+
+    def get_config(self, section: str = None):
+        """Получение конфигурации данных"""
+        if section:
+            return self.config_data.get(section, {})
+        return self.config_data
+
+    def show_help(self):
+        """Отображение помощи по аргументам"""
+        parser = argparse.ArgumentParser(
+            description=self.config_data.get(
+                "program", {}
+            ).get(
+                "description", ""
+            )
+        )
+
+        parser.print_help()
